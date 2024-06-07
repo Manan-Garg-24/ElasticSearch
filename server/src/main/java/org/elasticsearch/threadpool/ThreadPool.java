@@ -176,7 +176,10 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
 
     @SuppressWarnings("rawtypes")
     public Collection<ExecutorBuilder> builders() {
-        return Collections.unmodifiableCollection(builders.values());
+        buildersReadWriteLock.readLock().lock();
+        Collection<ExecutorBuilder> builderValues = Collections.unmodifiableCollection(builders.values());
+        buildersReadWriteLock.readLock().unlock();
+        return builderValues;
     }
 
     public static final Setting<TimeValue> ESTIMATED_TIME_INTERVAL_SETTING = Setting.timeSetting(
@@ -362,7 +365,9 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
     }
 
     public Info info(String name) {
+        executorsReadWriteLock.readLock().lock();
         ExecutorHolder holder = executors.get(name);
+        executorsReadWriteLock.readLock().unlock();
         if (holder == null) {
             return null;
         }
@@ -371,6 +376,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
 
     public ThreadPoolStats stats() {
         List<ThreadPoolStats.Stats> stats = new ArrayList<>();
+        executorsReadWriteLock.readLock().lock();
         for (ExecutorHolder holder : executors.values()) {
             final String name = holder.info.getName();
             // no need to have info on "same" thread pool
@@ -397,6 +403,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
             }
             stats.add(new ThreadPoolStats.Stats(name, threads, queue, active, rejected, largest, completed));
         }
+        executorsReadWriteLock.readLock().unlock();
         return new ThreadPoolStats(stats);
     }
 
@@ -424,7 +431,9 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
      * @throws IllegalArgumentException if no executor service with the specified name exists
      */
     public ExecutorService executor(String name) {
+        executorsReadWriteLock.readLock().lock();
         final ExecutorHolder holder = executors.get(name);
+        executorsReadWriteLock.readLock().unlock();
         if (holder == null) {
             throw new IllegalArgumentException("no executor service found for [" + name + "]");
         }
@@ -446,7 +455,10 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
      */
     @Override
     public ScheduledCancellable schedule(Runnable command, TimeValue delay, String executor) {
+        schedulingLock.readLock().lock();
+        threadContextReadWriteLock.readLock().lock();
         final Runnable contextPreservingRunnable = threadContext.preserveContext(command);
+        threadContextReadWriteLock.readLock().lock();
         final Runnable toSchedule;
         if (Names.SAME.equals(executor) == false) {
             toSchedule = new ThreadedRunnable(contextPreservingRunnable, executor(executor));
@@ -478,7 +490,9 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         } else {
             toSchedule = contextPreservingRunnable;
         }
-        return new ScheduledCancellableAdapter(scheduler.schedule(toSchedule, delay.millis(), TimeUnit.MILLISECONDS));
+        final ScheduledCancellableAdapter scheduledFuture = new ScheduledCancellableAdapter(scheduler.schedule(toSchedule, delay.millis(), TimeUnit.MILLISECONDS));
+        schedulingLock.readLock().unlock();
+        return scheduledFuture;
     }
 
     public void scheduleUnlessShuttingDown(TimeValue delay, String executor, Runnable command) {
@@ -966,7 +980,10 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
     }
 
     public ThreadContext getThreadContext() {
-        return threadContext;
+        threadContextReadWriteLock.readLock().lock();
+        ThreadContext currThreadContext = threadContext;
+        threadContextReadWriteLock.readLock().unlock();
+        return currThreadContext;
     }
 
     public static boolean assertNotScheduleThread(String reason) {
