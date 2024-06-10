@@ -1129,12 +1129,16 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         But this may not be so useful given thread creation and destruction overhead
         */
 
+        final Map<String, ThreadPool.ExecutorHolder> oldExecutors;
         // stopping scheduling and updating state (schedule() reads only these two state vars)
         schedulingLock.writeLock().lock();
         threadContextReadWriteLock.writeLock().lock();
         this.threadContext = tmpThreadContext;
         threadContextReadWriteLock.writeLock().unlock();
+        executorsReadWriteLock.readLock().lock();
+        oldExecutors = this.executors;
         executorsReadWriteLock.writeLock().lock();
+        executorsReadWriteLock.readLock().unlock();
         this.executors = tmpExecutors;
         executorsReadWriteLock.writeLock().unlock();
         schedulingLock.writeLock().unlock();
@@ -1148,6 +1152,12 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         this.threadPoolInfo = tmpThreadPoolInfo;
         threadPoolInfoReadWriteLock.writeLock().unlock();
 
+        //        terminating earlier ExecutorServices
+        for (ExecutorHolder executor : oldExecutors.values()) {
+            if (executor.executor() instanceof ThreadPoolExecutor) {
+                executor.executor().shutdown();
+            }
+        }
 //        TODO: Discuss if we should do something to ensure old info to tasks that were scheduled earlier
     }
 }
