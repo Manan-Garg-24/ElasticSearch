@@ -56,11 +56,11 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
 
     /*  Possible improvement -
          maintain a map<Object, Lock> and implement a method to not have to lock and unlock wherever objects are accessed */
-    private static final ReentrantReadWriteLock schedulingLock = new ReentrantReadWriteLock(true);
-    private static final ReentrantReadWriteLock buildersReadWriteLock = new ReentrantReadWriteLock(true);
-    private static final ReentrantReadWriteLock threadContextReadWriteLock = new ReentrantReadWriteLock(true);
-    private static final ReentrantReadWriteLock executorsReadWriteLock = new ReentrantReadWriteLock(true);
-    private static final ReentrantReadWriteLock threadPoolInfoReadWriteLock = new ReentrantReadWriteLock(true);
+    private final ReentrantReadWriteLock schedulingLock = new ReentrantReadWriteLock(true);
+    private final ReentrantReadWriteLock buildersReadWriteLock = new ReentrantReadWriteLock(true);
+    private final ReentrantReadWriteLock threadContextReadWriteLock = new ReentrantReadWriteLock(true);
+    private final ReentrantReadWriteLock executorsReadWriteLock = new ReentrantReadWriteLock(true);
+    private final ReentrantReadWriteLock threadPoolInfoReadWriteLock = new ReentrantReadWriteLock(true);
 
     private static final Logger logger = LogManager.getLogger(ThreadPool.class);
 
