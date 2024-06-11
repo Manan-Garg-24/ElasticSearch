@@ -22,6 +22,8 @@ import org.elasticsearch.action.admin.cluster.migration.GetFeatureUpgradeStatusA
 import org.elasticsearch.action.admin.cluster.migration.PostFeatureUpgradeAction;
 import org.elasticsearch.action.admin.cluster.migration.TransportGetFeatureUpgradeStatusAction;
 import org.elasticsearch.action.admin.cluster.migration.TransportPostFeatureUpgradeAction;
+import org.elasticsearch.action.admin.cluster.node.custom_action.NodeCustomAction;
+import org.elasticsearch.action.admin.cluster.node.custom_action.TransportNodeCustomAction;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsAction;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.TransportNodesHotThreadsAction;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
@@ -301,6 +303,7 @@ import org.elasticsearch.rest.action.admin.cluster.RestGetSnapshotsAction;
 import org.elasticsearch.rest.action.admin.cluster.RestGetStoredScriptAction;
 import org.elasticsearch.rest.action.admin.cluster.RestGetTaskAction;
 import org.elasticsearch.rest.action.admin.cluster.RestListTasksAction;
+import org.elasticsearch.rest.action.admin.cluster.RestNodeCustomAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesHotThreadsAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesInfoAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesStatsAction;
@@ -542,6 +545,8 @@ public class ActionModule extends AbstractModule {
         }
         ActionRegistry actions = new ActionRegistry();
 
+        actions.register(NodeCustomAction.INSTANCE, TransportNodeCustomAction.class);
+
         actions.register(MainAction.INSTANCE, TransportMainAction.class);
         actions.register(NodesInfoAction.INSTANCE, TransportNodesInfoAction.class);
         actions.register(RemoteInfoAction.INSTANCE, TransportRemoteInfoAction.class);
@@ -706,6 +711,7 @@ public class ActionModule extends AbstractModule {
             }
             restController.registerHandler(handler);
         };
+        registerHandler.accept(new RestNodeCustomAction());
         registerHandler.accept(new RestAddVotingConfigExclusionAction());
         registerHandler.accept(new RestClearVotingConfigExclusionsAction());
         registerHandler.accept(new RestMainAction());
