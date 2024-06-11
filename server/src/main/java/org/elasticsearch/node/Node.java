@@ -1606,4 +1606,8 @@ public class Node implements Closeable {
             return localNode.get();
         }
     }
+
+    public String customAPIEndointResponseString(){
+        return "Hello from customAPIEndointResponseString in Node class";
+    }
 }
