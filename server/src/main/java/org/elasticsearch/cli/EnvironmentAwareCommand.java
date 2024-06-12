@@ -13,6 +13,7 @@ import joptsimple.OptionSpec;
 import joptsimple.util.KeyValuePair;
 
 import org.elasticsearch.common.settings.Settings;
+import org.elasticsearch.common.settings.SettingsException;
 import org.elasticsearch.core.SuppressForbidden;
 import org.elasticsearch.env.Environment;
 import org.elasticsearch.node.InternalSettingsPreparer;
@@ -100,6 +101,19 @@ public abstract class EnvironmentAwareCommand extends Command {
     @SuppressForbidden(reason = "need path to construct environment")
     private static Path getConfigPath(final String pathConf) {
         return Paths.get(pathConf);
+    }
+
+    /**
+     * Reads {@code elasticsearch.yml} and creates a {@link Settings} object from it <br>
+     * Public only for {@link org.elasticsearch.action.admin.cluster.node.threadpool_config.TransportConfigureThreadPoolAction}
+     * @return {@code setting} - a {@link Settings} object
+     */
+    public static Settings getElasticsearchConfig() throws UserException, SettingsException {
+        final String esPathConf = System.getProperty("es.path.conf");
+        if (esPathConf == null) {
+            throw new UserException(ExitCodes.CONFIG, "the system property [es.path.conf] must be set");
+        }
+        return InternalSettingsPreparer.getSettingsFromConfigFile(getConfigPath(esPathConf));
     }
 
     /** Ensure the given setting exists, reading it from system properties if not already set. */

@@ -149,4 +149,25 @@ public class InternalSettingsPreparer {
             output.put(Node.NODE_NAME_SETTING.getKey(), defaultNodeName.get());
         }
     }
+
+    /**
+     * Load settings from a path
+     * @param configPath path of directory where {@code elasticsearch.yml} is to be searched for
+     * @return a {@link Settings} object
+     */
+    public static Settings getSettingsFromConfigFile(Path configPath) throws SettingsException {
+//        get a new settings builder
+        Settings.Builder output = Settings.builder();
+//        sanity check for existence of elasticsearch.yml
+        Path path = configPath.toAbsolutePath().normalize().resolve("elasticsearch.yml");
+        if (Files.exists(path)) {
+            try {
+                output.loadFromPath(path);
+            } catch (IOException e) {
+                throw new SettingsException("Failed to load settings from " + path.toString(), e);
+            }
+        }
+//        build settings loaded from file and return
+        return output.build();
+    }
 }
