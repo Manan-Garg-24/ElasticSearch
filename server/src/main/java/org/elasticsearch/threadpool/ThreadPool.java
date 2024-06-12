@@ -58,7 +58,6 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
          maintain a map<Object, Lock> and implement a method to not have to lock and unlock wherever objects are accessed */
     private final ReentrantReadWriteLock schedulingLock = new ReentrantReadWriteLock(true);
     private final ReentrantReadWriteLock buildersReadWriteLock = new ReentrantReadWriteLock(true);
-    private final ReentrantReadWriteLock threadContextReadWriteLock = new ReentrantReadWriteLock(true);
     private final ReentrantReadWriteLock executorsReadWriteLock = new ReentrantReadWriteLock(true);
     private final ReentrantReadWriteLock threadPoolInfoReadWriteLock = new ReentrantReadWriteLock(true);
 
@@ -163,8 +162,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
 
     private final CachedTimeThread cachedTimeThread;
 
-    @GuardedBy("threadContextReadWriteLock")
-    private ThreadContext threadContext;
+    private final ThreadContext threadContext;
 
     @SuppressWarnings("rawtypes")
     @GuardedBy("schedulingLock, buildersReadWriteLock")
@@ -456,9 +454,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
     @Override
     public ScheduledCancellable schedule(Runnable command, TimeValue delay, String executor) {
         schedulingLock.readLock().lock();
-        threadContextReadWriteLock.readLock().lock();
         final Runnable contextPreservingRunnable = threadContext.preserveContext(command);
-        threadContextReadWriteLock.readLock().lock();
         final Runnable toSchedule;
         if (Names.SAME.equals(executor) == false) {
             toSchedule = new ThreadedRunnable(contextPreservingRunnable, executor(executor));
@@ -980,10 +976,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
     }
 
     public ThreadContext getThreadContext() {
-        threadContextReadWriteLock.readLock().lock();
-        ThreadContext currThreadContext = threadContext;
-        threadContextReadWriteLock.readLock().unlock();
-        return currThreadContext;
+        return threadContext;
     }
 
     public static boolean assertNotScheduleThread(String reason) {
@@ -1095,13 +1088,12 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         Store temp variables and assign to state variables together
          */
         final Map<String, ExecutorBuilder> tmpBuilders = Collections.unmodifiableMap(builders);
-        final ThreadContext tmpThreadContext = new ThreadContext(settings);
 
 //        block 2 -> building thread pools (copied from constructor)
         final Map<String, ExecutorHolder> executors = new HashMap<>();
         for (final Map.Entry<String, ExecutorBuilder> entry : builders.entrySet()) {
             final ExecutorBuilder.ExecutorSettings executorSettings = entry.getValue().getSettings(settings);
-            final ExecutorHolder executorHolder = entry.getValue().build(executorSettings, tmpThreadContext);
+            final ExecutorHolder executorHolder = entry.getValue().build(executorSettings, threadContext);
             if (executors.containsKey(executorHolder.info.getName())) {
                 throw new IllegalStateException("duplicate executors with name [" + executorHolder.info.getName() + "] registered");
             }
@@ -1132,9 +1124,6 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         final Map<String, ThreadPool.ExecutorHolder> oldExecutors;
         // stopping scheduling and updating state (schedule() reads only these two state vars)
         schedulingLock.writeLock().lock();
-        threadContextReadWriteLock.writeLock().lock();
-        this.threadContext = tmpThreadContext;
-        threadContextReadWriteLock.writeLock().unlock();
         executorsReadWriteLock.readLock().lock();
         oldExecutors = this.executors;
         executorsReadWriteLock.writeLock().lock();
