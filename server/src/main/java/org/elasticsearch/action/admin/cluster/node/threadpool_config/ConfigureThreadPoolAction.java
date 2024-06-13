@@ -6,15 +6,15 @@
  * Side Public License, v 1.
  */
 
-package org.elasticsearch.action.admin.cluster.node.custom_action;
+package org.elasticsearch.action.admin.cluster.node.threadpool_config;
 
 import org.elasticsearch.action.ActionType;
 
-public class NodeCustomAction extends ActionType<NodeCustomResponse>{
-    public static final NodeCustomAction INSTANCE = new NodeCustomAction();
+public class ConfigureThreadPoolAction extends ActionType<ConfigureThreadPoolResponse>{
+    public static final ConfigureThreadPoolAction INSTANCE = new ConfigureThreadPoolAction();
     public static final String NAME = "cluster:admin/nodes/custom_action";
 
-    private NodeCustomAction(){
-        super(NAME, NodeCustomResponse::new);
+    private ConfigureThreadPoolAction(){
+        super(NAME, ConfigureThreadPoolResponse::new);
     }
 }

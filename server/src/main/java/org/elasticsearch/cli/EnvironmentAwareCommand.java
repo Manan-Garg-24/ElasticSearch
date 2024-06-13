@@ -86,6 +86,7 @@ public abstract class EnvironmentAwareCommand extends Command {
     /** Create an {@link Environment} for the command to use. Overrideable for tests. */
     protected final Environment createEnv(final Settings baseSettings, final Map<String, String> settings) throws UserException {
         final String esPathConf = System.getProperty("es.path.conf");
+        System.out.println("The config path is: " + esPathConf);
         if (esPathConf == null) {
             throw new UserException(ExitCodes.CONFIG, "the system property [es.path.conf] must be set");
         }
@@ -109,6 +110,7 @@ public abstract class EnvironmentAwareCommand extends Command {
      * @return {@code setting} - a {@link Settings} object
      */
     public static Settings getElasticsearchConfig() throws UserException, SettingsException {
+        System.out.println("Reading the configuration in EnvironmentAwareCommand.GetElasticSearchConfig");
         final String esPathConf = System.getProperty("es.path.conf");
         if (esPathConf == null) {
             throw new UserException(ExitCodes.CONFIG, "the system property [es.path.conf] must be set");

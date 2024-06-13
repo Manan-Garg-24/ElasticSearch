@@ -8,7 +8,6 @@
 
 package org.elasticsearch.threadpool;
 
-import net.jcip.annotations.GuardedBy;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -154,10 +153,8 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         THREAD_POOL_TYPES = Collections.unmodifiableMap(map);
     }
 
-    @GuardedBy("schedulingLock, executorsReadWriteLock")
     private Map<String, ExecutorHolder> executors;
 
-    @GuardedBy("threadPoolInfoReadWriteLock")
     private ThreadPoolInfo threadPoolInfo;
 
     private final CachedTimeThread cachedTimeThread;
@@ -165,7 +162,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
     private final ThreadContext threadContext;
 
     @SuppressWarnings("rawtypes")
-    @GuardedBy("schedulingLock, buildersReadWriteLock")
+//    @GuardedBy("schedulingLock, buildersReadWriteLock")
     private  Map<String, ExecutorBuilder> builders;
 
     private final ScheduledThreadPoolExecutor scheduler;
@@ -1006,6 +1003,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
          pool termination -> Use future
          wait for original thread pools to finish and then return
         */
+        logger.debug("Creating new thread pools in ThreadPool class");
 
 //        block 1 -> setting up builders (copied from constructor)
         assert Node.NODE_NAME_SETTING.exists(settings);
@@ -1124,10 +1122,8 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         final Map<String, ThreadPool.ExecutorHolder> oldExecutors;
         // stopping scheduling and updating state (schedule() reads only these two state vars)
         schedulingLock.writeLock().lock();
-        executorsReadWriteLock.readLock().lock();
-        oldExecutors = this.executors;
         executorsReadWriteLock.writeLock().lock();
-        executorsReadWriteLock.readLock().unlock();
+        oldExecutors = this.executors;
         this.executors = tmpExecutors;
         executorsReadWriteLock.writeLock().unlock();
         schedulingLock.writeLock().unlock();
