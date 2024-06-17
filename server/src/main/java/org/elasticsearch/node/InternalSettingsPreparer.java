@@ -76,8 +76,6 @@ public class InternalSettingsPreparer {
             } catch (IOException e) {
                 throw new SettingsException("Failed to load settings from " + path.toString(), e);
             }
-        } else {
-            System.out.println("Found no file ;;;;;;;;");
         }
 
         // re-initialize settings now that the config file has been loaded

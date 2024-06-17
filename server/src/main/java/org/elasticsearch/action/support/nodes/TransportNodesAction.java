@@ -334,6 +334,11 @@ public abstract class TransportNodesAction<
         }
     }
 
+    /**
+     * Send requests to nodes in a synchronous manner, such that next request is sent after response/failure from previous node has been
+     * received.
+     * @see AsyncAction
+     */
     class SyncAction extends AsyncAction{
         private final NodesRequest request;
         private final ActionListener<NodesResponse> listener;
@@ -390,15 +395,12 @@ public abstract class TransportNodesAction<
                 final int idx = i;
                 final DiscoveryNode node = nodes[i];
                 final String nodeId = node.getId();
-                System.out.println("Trying to send request to node:" + nodeId);
                 try {
                     TransportRequest nodeRequest = newNodeRequest(request);
                     if (task != null) {
                         nodeRequest.setParentTask(clusterService.localNode().getId(), task.getId());
                     }
-                    System.out.println("Sent request to node:" + nodeId);
                     mutex.acquire();
-                    System.out.println("Acquired semaphore permit");
                     transportService.sendRequest(
                         node,
                         getTransportNodeAction(node),
@@ -412,20 +414,14 @@ public abstract class TransportNodesAction<
 
                             @Override
                             public void handleResponse(NodeResponse response) {
-                                System.out.println("handling response from node:"+nodeId);
                                 onOperation(idx, response);
-                                System.out.printf("Releasing semaphore permit(%s)\n", nodeId);
                                 mutex.release();
-                                System.out.printf("Released semaphore permit()%s\n", nodeId);
                             }
 
                             @Override
                             public void handleException(TransportException exp) {
-                                System.out.println("handling failure from node:"+nodeId);
                                 onFailure(idx, node.getId(), exp);
-                                System.out.printf("Releasing semaphore permit(%s)\n", nodeId);
                                 mutex.release();
-                                System.out.printf("Released semaphore permit()%s\n", nodeId);
                             }
                         }
                     );

@@ -16,6 +16,9 @@ import org.elasticsearch.action.admin.cluster.allocation.ClusterAllocationExplai
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequestBuilder;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationRequest;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationRequestBuilder;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationResponse;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsRequest;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsRequestBuilder;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsResponse;
@@ -221,6 +224,12 @@ public interface ClusterAdminClient extends ElasticsearchClient {
      * Nodes info of the cluster.
      */
     NodesInfoRequestBuilder prepareNodesInfo(String... nodesIds);
+
+    ActionFuture<ThreadPoolConfigurationResponse> updateNodesThreadPools(ThreadPoolConfigurationRequest request);
+
+    void updateNodesThreadPools(ThreadPoolConfigurationRequest request, ActionListener<ThreadPoolConfigurationResponse> listener);
+
+    ThreadPoolConfigurationRequestBuilder prepareMultiNodeThreadPools(String... nodeIds);
 
     /**
      * Cluster wide aggregated stats.

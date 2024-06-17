@@ -22,6 +22,8 @@ import org.elasticsearch.action.admin.cluster.migration.GetFeatureUpgradeStatusA
 import org.elasticsearch.action.admin.cluster.migration.PostFeatureUpgradeAction;
 import org.elasticsearch.action.admin.cluster.migration.TransportGetFeatureUpgradeStatusAction;
 import org.elasticsearch.action.admin.cluster.migration.TransportPostFeatureUpgradeAction;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationAction;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.TransportThreadPoolConfigurationAction;
 import org.elasticsearch.action.admin.cluster.node.threadpool_config.ConfigureThreadPoolAction;
 import org.elasticsearch.action.admin.cluster.node.threadpool_config.TransportConfigureThreadPoolAction;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsAction;
@@ -304,6 +306,7 @@ import org.elasticsearch.rest.action.admin.cluster.RestGetStoredScriptAction;
 import org.elasticsearch.rest.action.admin.cluster.RestGetTaskAction;
 import org.elasticsearch.rest.action.admin.cluster.RestListTasksAction;
 import org.elasticsearch.rest.action.admin.cluster.RestConfigureThreadPoolAction;
+import org.elasticsearch.rest.action.admin.cluster.RestThreadPoolConfigurationAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesHotThreadsAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesInfoAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesStatsAction;
@@ -546,6 +549,7 @@ public class ActionModule extends AbstractModule {
         ActionRegistry actions = new ActionRegistry();
 
         actions.register(ConfigureThreadPoolAction.INSTANCE, TransportConfigureThreadPoolAction.class);
+        actions.register(ThreadPoolConfigurationAction.INSTANCE, TransportThreadPoolConfigurationAction.class);
 
         actions.register(MainAction.INSTANCE, TransportMainAction.class);
         actions.register(NodesInfoAction.INSTANCE, TransportNodesInfoAction.class);
@@ -712,6 +716,7 @@ public class ActionModule extends AbstractModule {
             restController.registerHandler(handler);
         };
         registerHandler.accept(new RestConfigureThreadPoolAction());
+        registerHandler.accept(new RestThreadPoolConfigurationAction());
         registerHandler.accept(new RestAddVotingConfigExclusionAction());
         registerHandler.accept(new RestClearVotingConfigExclusionsAction());
         registerHandler.accept(new RestMainAction());

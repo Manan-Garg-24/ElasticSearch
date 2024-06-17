@@ -21,6 +21,7 @@ import org.elasticsearch.action.ActionModule;
 import org.elasticsearch.action.ActionRequest;
 import org.elasticsearch.action.ActionResponse;
 import org.elasticsearch.action.ActionType;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.NodeThreadPoolConfigurationResponse;
 import org.elasticsearch.action.admin.cluster.snapshots.status.TransportNodesSnapshotsStatus;
 import org.elasticsearch.action.search.SearchExecutionStatsCollector;
 import org.elasticsearch.action.search.SearchPhaseController;
@@ -29,6 +30,8 @@ import org.elasticsearch.action.support.TransportAction;
 import org.elasticsearch.action.update.UpdateHelper;
 import org.elasticsearch.bootstrap.BootstrapCheck;
 import org.elasticsearch.bootstrap.BootstrapContext;
+import org.elasticsearch.cli.EnvironmentAwareCommand;
+import org.elasticsearch.cli.UserException;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.node.NodeClient;
 import org.elasticsearch.cluster.ClusterInfoService;
@@ -1643,14 +1646,16 @@ public class Node implements Closeable {
         return "Hello from customAPIEndointResponseString in Node class";
     }
 
+    private final String successfulNodeUpdateMessage = "Thread pools reconfigured successfully";
+
     /**
      * Sets up new thread pools with given settings and initialises destruction of existing thread pool threads.
      * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
      * Assumes that only the queue size and size of thread pools are changed
      * @param settings the {@link Settings} object used to specify new configuration of thread pools
-     * @return {@code success}
+     * @return an {@link NodeThreadPoolConfigurationResponse} object
      */
-    public boolean SetNewThreadPools(Settings settings){
+    public NodeThreadPoolConfigurationResponse SetNewThreadPools(Settings settings){
         /* 2 Steps:
            1. Signal ThreadPool object regarding update
            2. Do changes in current object, and redo somethings
@@ -1669,12 +1674,28 @@ public class Node implements Closeable {
             success = true;
         } catch (Exception ex) {
             logger.info("Exception while initiating new thread pools: " + ex.getMessage());
-            throw new ElasticsearchException("Failed to initiate new thread pools", ex);
+//            throw new ElasticsearchException("Failed to initiate new thread pools", ex);
+            return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
         } finally {
             if (success == false) {
                 IOUtils.closeWhileHandlingException(resourcesToClose);
             }
         }
-        return success;
+        return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), successfulNodeUpdateMessage);
+    }
+
+    /**
+     * Sets up new thread pools initialises destruction of existing thread pool threads.
+     * Reads the settings from elasticsearch.yml
+     * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
+     * Assumes that only the queue size and size of thread pools are changed
+     * @return {@code success}
+     */
+    public NodeThreadPoolConfigurationResponse SetNewThreadPools(){
+        try {
+            return SetNewThreadPools(EnvironmentAwareCommand.getElasticsearchConfig());
+        } catch (UserException ex){
+            return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
+        }
     }
 }
