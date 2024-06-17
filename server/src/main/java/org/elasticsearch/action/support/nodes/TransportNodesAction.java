@@ -36,6 +36,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Objects;
+import java.util.concurrent.Semaphore;
 
 public abstract class TransportNodesAction<
     NodesRequest extends BaseNodesRequest<NodesRequest>,
@@ -50,6 +51,7 @@ public abstract class TransportNodesAction<
     protected final String transportNodeAction;
 
     private final String finalExecutor;
+    private boolean executeSynchronously = false;
 
     /**
      * @param actionName        action name
@@ -118,9 +120,17 @@ public abstract class TransportNodesAction<
         );
     }
 
+    protected void executeSynchronously(){
+        executeSynchronously = true;
+    }
+
     @Override
     protected void doExecute(Task task, NodesRequest request, ActionListener<NodesResponse> listener) {
-        new AsyncAction(task, request, listener).start();
+        if (executeSynchronously){
+            new SyncAction(task, request, listener).start();
+        } else {
+            new AsyncAction(task, request, listener).start();
+        }
     }
 
     /**
@@ -320,6 +330,117 @@ public abstract class TransportNodesAction<
                 ((CancellableTask) task).ensureNotCancelled();
             } catch (TaskCancelledException e) {
                 nodeResponseTracker.discardIntermediateResponses(e);
+            }
+        }
+    }
+
+    /**
+     * Send requests to nodes in a synchronous manner, such that next request is sent after response/failure from previous node has been
+     * received.
+     * @see AsyncAction
+     */
+    class SyncAction extends AsyncAction{
+        private final NodesRequest request;
+        private final ActionListener<NodesResponse> listener;
+        private final NodeResponseTracker nodeResponseTracker;
+        private final Task task;
+
+        SyncAction(Task task, NodesRequest request, ActionListener<NodesResponse> listener) {
+            super(task, request, listener);
+            this.task = task;
+            this.request = request;
+            this.listener = listener;
+            if (request.concreteNodes() == null) {
+                resolveRequest(request, clusterService.state());
+                assert request.concreteNodes() != null;
+            }
+            this.nodeResponseTracker = new NodeResponseTracker(request.concreteNodes().length);
+        }
+
+        private void finishHim() {
+            if (task instanceof CancellableTask) {
+                CancellableTask cancellableTask = (CancellableTask) task;
+                if (cancellableTask.notifyIfCancelled(listener)) {
+                    return;
+                }
+            }
+
+            final String executor = finalExecutor.equals(ThreadPool.Names.SAME) ? ThreadPool.Names.GENERIC : finalExecutor;
+            threadPool.executor(executor).execute(() -> {
+                try {
+                    newResponse(task, request, nodeResponseTracker, listener);
+                } catch (NodeResponseTracker.DiscardedResponsesException e) {
+                    // We propagate the reason that the results, in this case the task cancellation, in case the listener needs to take
+                    // follow-up actions
+                    listener.onFailure((Exception) e.getCause());
+                }
+            });
+        }
+
+        @Override
+        void start() {
+//            send a request, wait for response then send another request
+            if (task instanceof CancellableTask) {
+                CancellableTask cancellableTask = (CancellableTask) task;
+                cancellableTask.addListener(this);
+            }
+            final DiscoveryNode[] nodes = request.concreteNodes();
+            if (nodes.length == 0) {
+                finishHim();
+                return;
+            }
+            final TransportRequestOptions transportRequestOptions = TransportRequestOptions.timeout(request.timeout());
+            Semaphore mutex = new Semaphore(1);
+            for (int i = 0; i < nodes.length; i++){
+                final int idx = i;
+                final DiscoveryNode node = nodes[i];
+                final String nodeId = node.getId();
+                try {
+                    TransportRequest nodeRequest = newNodeRequest(request);
+                    if (task != null) {
+                        nodeRequest.setParentTask(clusterService.localNode().getId(), task.getId());
+                    }
+                    mutex.acquire();
+                    transportService.sendRequest(
+                        node,
+                        getTransportNodeAction(node),
+                        nodeRequest,
+                        transportRequestOptions,
+                        new TransportResponseHandler<NodeResponse>() {
+                            @Override
+                            public NodeResponse read(StreamInput in) throws IOException {
+                                return newNodeResponse(in, node);
+                            }
+
+                            @Override
+                            public void handleResponse(NodeResponse response) {
+                                onOperation(idx, response);
+                                mutex.release();
+                            }
+
+                            @Override
+                            public void handleException(TransportException exp) {
+                                onFailure(idx, node.getId(), exp);
+                                mutex.release();
+                            }
+                        }
+                    );
+                } catch (Exception e) {
+                    onFailure(idx, nodeId, e);
+                }
+            }
+        }
+
+        private void onOperation(int idx, NodeResponse nodeResponse) {
+            if (nodeResponseTracker.trackResponseAndCheckIfLast(idx, nodeResponse)) {
+                finishHim();
+            }
+        }
+
+        private void onFailure(int idx, String nodeId, Throwable t) {
+            logger.debug(new ParameterizedMessage("failed to execute on node [{}]", nodeId), t);
+            if (nodeResponseTracker.trackResponseAndCheckIfLast(idx, new FailedNodeException(nodeId, "Failed node [" + nodeId + "]", t))) {
+                finishHim();
             }
         }
     }

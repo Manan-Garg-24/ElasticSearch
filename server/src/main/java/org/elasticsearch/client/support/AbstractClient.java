@@ -23,6 +23,10 @@ import org.elasticsearch.action.admin.cluster.health.ClusterHealthAction;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthRequestBuilder;
 import org.elasticsearch.action.admin.cluster.health.ClusterHealthResponse;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationAction;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationRequest;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationRequestBuilder;
+import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationResponse;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsAction;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsRequest;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsRequestBuilder;
@@ -794,6 +798,21 @@ public abstract class AbstractClient implements Client {
         @Override
         public NodesInfoRequestBuilder prepareNodesInfo(String... nodesIds) {
             return new NodesInfoRequestBuilder(this, NodesInfoAction.INSTANCE).setNodesIds(nodesIds);
+        }
+
+        @Override
+        public ActionFuture<ThreadPoolConfigurationResponse> updateNodesThreadPools(ThreadPoolConfigurationRequest request){
+            return execute(ThreadPoolConfigurationAction.INSTANCE, request);
+        }
+
+        @Override
+        public void updateNodesThreadPools(ThreadPoolConfigurationRequest request, ActionListener<ThreadPoolConfigurationResponse> listener){
+            execute(ThreadPoolConfigurationAction.INSTANCE, request, listener);
+        }
+
+        @Override
+        public ThreadPoolConfigurationRequestBuilder prepareMultiNodeThreadPools(String... nodeIds) {
+            return new ThreadPoolConfigurationRequestBuilder(this, ThreadPoolConfigurationAction.INSTANCE).setNodesIds(nodeIds);
         }
 
         @Override
