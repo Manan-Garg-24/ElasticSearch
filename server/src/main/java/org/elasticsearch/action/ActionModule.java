@@ -303,7 +303,6 @@ import org.elasticsearch.rest.action.admin.cluster.RestGetSnapshotsAction;
 import org.elasticsearch.rest.action.admin.cluster.RestGetStoredScriptAction;
 import org.elasticsearch.rest.action.admin.cluster.RestGetTaskAction;
 import org.elasticsearch.rest.action.admin.cluster.RestListTasksAction;
-import org.elasticsearch.rest.action.admin.cluster.RestConfigureThreadPoolAction;
 import org.elasticsearch.rest.action.admin.cluster.RestThreadPoolConfigurationAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesHotThreadsAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesInfoAction;
@@ -712,7 +711,6 @@ public class ActionModule extends AbstractModule {
             }
             restController.registerHandler(handler);
         };
-        registerHandler.accept(new RestConfigureThreadPoolAction());
         registerHandler.accept(new RestThreadPoolConfigurationAction());
         registerHandler.accept(new RestAddVotingConfigExclusionAction());
         registerHandler.accept(new RestClearVotingConfigExclusionsAction());
