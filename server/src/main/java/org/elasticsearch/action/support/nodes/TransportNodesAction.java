@@ -120,13 +120,16 @@ public abstract class TransportNodesAction<
         );
     }
 
-    protected void executeSynchronously(){
+    /**
+     * Signal to send request to a node and wait for a response/failure before sending request to the next node
+     */
+    protected void executeSynchronously() {
         executeSynchronously = true;
     }
 
     @Override
     protected void doExecute(Task task, NodesRequest request, ActionListener<NodesResponse> listener) {
-        if (executeSynchronously){
+        if (executeSynchronously) {
             new SyncAction(task, request, listener).start();
         } else {
             new AsyncAction(task, request, listener).start();
@@ -339,7 +342,7 @@ public abstract class TransportNodesAction<
      * received.
      * @see AsyncAction
      */
-    class SyncAction extends AsyncAction{
+    class SyncAction extends AsyncAction {
         private final NodesRequest request;
         private final ActionListener<NodesResponse> listener;
         private final NodeResponseTracker nodeResponseTracker;
@@ -379,7 +382,7 @@ public abstract class TransportNodesAction<
 
         @Override
         void start() {
-//            send a request, wait for response then send another request
+            // send a request, wait for response/failure then send another request
             if (task instanceof CancellableTask) {
                 CancellableTask cancellableTask = (CancellableTask) task;
                 cancellableTask.addListener(this);
@@ -391,7 +394,7 @@ public abstract class TransportNodesAction<
             }
             final TransportRequestOptions transportRequestOptions = TransportRequestOptions.timeout(request.timeout());
             Semaphore mutex = new Semaphore(1);
-            for (int i = 0; i < nodes.length; i++){
+            for (int i = 0; i < nodes.length; i++) {
                 final int idx = i;
                 final DiscoveryNode node = nodes[i];
                 final String nodeId = node.getId();
