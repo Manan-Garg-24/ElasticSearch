@@ -15,11 +15,15 @@ import java.util.List;
 
 public class ThreadPoolConfigurationResponse extends BaseNodesResponse<NodeThreadPoolConfigurationResponse> implements ToXContentFragment {
 
-    public ThreadPoolConfigurationResponse(StreamInput in) throws IOException{
+    public ThreadPoolConfigurationResponse(StreamInput in) throws IOException {
         super(in);
     }
 
-    public ThreadPoolConfigurationResponse(ClusterName clusterName, List<NodeThreadPoolConfigurationResponse> nodes, List<FailedNodeException> failures) {
+    public ThreadPoolConfigurationResponse(
+        ClusterName clusterName,
+        List<NodeThreadPoolConfigurationResponse> nodes,
+        List<FailedNodeException> failures
+    ) {
         super(clusterName, nodes, failures);
     }
 
@@ -46,7 +50,7 @@ public class ThreadPoolConfigurationResponse extends BaseNodesResponse<NodeThrea
     }
 
     @Override
-    public String toString(){
+    public String toString() {
         try {
             XContentBuilder builder = XContentFactory.jsonBuilder().prettyPrint();
             builder.startObject();

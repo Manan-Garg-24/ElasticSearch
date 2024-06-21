@@ -23,7 +23,7 @@ public class NodeThreadPoolConfigurationResponse extends BaseNodeResponse {
         nodeThreadPoolUpdateStatus = in.readString();
     }
 
-    public NodeThreadPoolConfigurationResponse(DiscoveryNode node, String msg){
+    public NodeThreadPoolConfigurationResponse(DiscoveryNode node, String msg) {
         super(node);
         this.nodeThreadPoolUpdateStatus = msg;
     }
@@ -37,4 +37,4 @@ public class NodeThreadPoolConfigurationResponse extends BaseNodeResponse {
         super.writeTo(out);
         out.writeString(nodeThreadPoolUpdateStatus);
     }
- }
+}
