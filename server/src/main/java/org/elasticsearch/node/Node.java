@@ -429,7 +429,7 @@ public class Node implements Closeable {
              */
             this.environment = new Environment(settings, initialEnvironment.configFile(), Node.NODE_LOCAL_STORAGE_SETTING.get(settings));
             Environment.assertEquivalent(initialEnvironment, this.environment);
-//            NOTE: NodeEnvironment doesn't handle settings related to ThreadPool config
+            // NOTE: NodeEnvironment doesn't handle settings related to ThreadPool config
             nodeEnvironment = new NodeEnvironment(tmpSettings, environment);
             final Set<String> roleNames = DiscoveryNode.getRolesFromSettings(settings)
                 .stream()
@@ -472,7 +472,6 @@ public class Node implements Closeable {
 
             final ThreadPool threadPool = new ThreadPool(settings, executorBuilders.toArray(new ExecutorBuilder<?>[0]));
             resourcesToClose.add(() -> ThreadPool.terminate(threadPool, 10, TimeUnit.SECONDS));
-//            No need to redo this, as it just schedules recurring tasks
             final ResourceWatcherService resourceWatcherService = new ResourceWatcherService(settings, threadPool);
             resourcesToClose.add(resourceWatcherService);
             // adds the context to the DeprecationLogger so that it does not need to be injected everywhere
@@ -490,54 +489,43 @@ public class Node implements Closeable {
             for (final ExecutorBuilder<?> builder : threadPool.builders()) {
                 additionalSettings.addAll(builder.getRegisteredSettings());
             }
-//            this doesnt need to be changed
             client = new NodeClient(settings, threadPool);
 
-//            Assumming this part isnt affected; No, this IS AFFECTED
             final ScriptModule scriptModule = new ScriptModule(settings, pluginsService.filterPlugins(ScriptPlugin.class));
             final ScriptService scriptService = newScriptService(settings, scriptModule.engines, scriptModule.contexts);
             AnalysisModule analysisModule = new AnalysisModule(this.environment, pluginsService.filterPlugins(AnalysisPlugin.class));
             // this is as early as we can validate settings at this point. we already pass them to ScriptModule as well as ThreadPool
             // so we might be late here already
 
-//            This isnt affected for sure, but required for a coupled change
             final Set<SettingUpgrader<?>> settingsUpgraders = pluginsService.filterPlugins(Plugin.class)
                 .stream()
                 .map(Plugin::getSettingUpgraders)
                 .flatMap(List::stream)
                 .collect(Collectors.toSet());
 
-//            TODO: REDO (this is coupled with an earlier change) -> done and required code also redone
-//            (additionalSettings is used only here and it invoLves ThreadPool.builders settings)
             final SettingsModule settingsModule = new SettingsModule(
                 settings,
                 additionalSettings,
                 additionalSettingsFilter,
                 settingsUpgraders
             );
-//            This involves only cluster settings from the settingsModule, so unaffected by thread pool settings change
             scriptModule.registerClusterSettingsListeners(scriptService, settingsModule.getClusterSettings());
-//            not affected
             final NetworkService networkService = new NetworkService(
                 getCustomNameResolvers(pluginsService.filterPlugins(DiscoveryPlugin.class))
             );
 
-//            unaffected
             List<ClusterPlugin> clusterPlugins = pluginsService.filterPlugins(ClusterPlugin.class);
-//            This is not actually affected by the changes we made
             final ClusterService clusterService = new ClusterService(settings, settingsModule.getClusterSettings(), threadPool);
             clusterService.addStateApplier(scriptService);
             resourcesToClose.add(clusterService);
-//            Consistent settings are most likely not going to be affected by thread pool settings
-//            TODO: verify above claim later
+
             final Set<Setting<?>> consistentSettings = settingsModule.getConsistentSettings();
             if (consistentSettings.isEmpty() == false) {
                 clusterService.addLocalNodeMasterListener(
                     new ConsistentSettingsService(settings, clusterService, consistentSettings).newHashPublisher()
                 );
             }
-//            The IngestService is also very unlikely to have something changed due to change in ThreadPool
-//            TODO:  Verify claim
+
             final IngestService ingestService = new IngestService(
                 clusterService,
                 threadPool,
@@ -548,11 +536,9 @@ public class Node implements Closeable {
                 client
             );
             final SetOnce<RepositoriesService> repositoriesServiceReference = new SetOnce<>();
-//            Not affected
             final ClusterInfoService clusterInfoService = newClusterInfoService(settings, clusterService, threadPool, client);
             final UsageService usageService = new UsageService();
 
-//            Not affected
             SearchModule searchModule = new SearchModule(settings, false, pluginsService.filterPlugins(SearchPlugin.class));
             IndicesModule indicesModule = new IndicesModule(pluginsService.filterPlugins(MapperPlugin.class));
             List<NamedWriteableRegistry.Entry> namedWriteables = Stream.of(
@@ -582,13 +568,10 @@ public class Node implements Closeable {
             final ExecutorSelector executorSelector = systemIndices.getExecutorSelector();
 
             ModulesBuilder modules = new ModulesBuilder();
-            // plugin modules must be added here, before others or we can get crazy injection errors...
             for (Module pluginModule : pluginsService.createGuiceModules()) {
                 modules.add(pluginModule);
             }
-//            The settings dont seem to make any difference here
             final MonitorService monitorService = new MonitorService(settings, nodeEnvironment, threadPool);
-//            Same as above
             final FsHealthService fsHealthService = new FsHealthService(
                 settings,
                 clusterService.getClusterSettings(),
@@ -596,14 +579,12 @@ public class Node implements Closeable {
                 nodeEnvironment
             );
             final SetOnce<RerouteService> rerouteServiceReference = new SetOnce<>();
-//            uses thread pool but safety ensured by ThreadPool class methods
             final InternalSnapshotsInfoService snapshotsInfoService = new InternalSnapshotsInfoService(
                 settings,
                 clusterService,
                 repositoriesServiceReference::get,
                 rerouteServiceReference::get
             );
-//            not affected, ThreadContext object not changed when setting new thread pools
             final ClusterModule clusterModule = new ClusterModule(
                 settings,
                 clusterService,
@@ -616,7 +597,7 @@ public class Node implements Closeable {
             modules.add(clusterModule);
             modules.add(indicesModule);
 
-//            no effect
+            // no effect
             List<BreakerSettings> pluginCircuitBreakers = pluginsService.filterPlugins(CircuitBreakerPlugin.class)
                 .stream()
                 .map(plugin -> plugin.getCircuitBreaker(settings))
@@ -637,7 +618,6 @@ public class Node implements Closeable {
             BigArrays bigArrays = createBigArrays(pageCacheRecycler, circuitBreakerService);
             modules.add(settingsModule);
 
-//            not affected
             final MetaStateService metaStateService = new MetaStateService(nodeEnvironment, xContentRegistry);
             final PersistedClusterStateService lucenePersistedStateFactory = new PersistedClusterStateService(
                 nodeEnvironment,
@@ -716,7 +696,6 @@ public class Node implements Closeable {
             final AliasValidator aliasValidator = new AliasValidator();
 
             final ShardLimitValidator shardLimitValidator = new ShardLimitValidator(settings, clusterService);
-//            TODO: REDO and undo previous effects
             final MetadataCreateIndexService metadataCreateIndexService = new MetadataCreateIndexService(
                 settings,
                 clusterService,
@@ -736,7 +715,6 @@ public class Node implements Closeable {
                     p -> p.getAdditionalIndexSettingProviders().forEach(metadataCreateIndexService::addAdditionalIndexSettingProvider)
                 );
 
-//            TODO: REDO and undo previous effects
             final MetadataCreateDataStreamService metadataCreateDataStreamService = new MetadataCreateDataStreamService(
                 threadPool,
                 clusterService,
@@ -744,7 +722,6 @@ public class Node implements Closeable {
             );
             final MetadataDataStreamsService metadataDataStreamsService = new MetadataDataStreamsService(clusterService, indicesService);
 
-//            TODO: REDO and undo previous effects
             final MetadataUpdateSettingsService metadataUpdateSettingsService = new MetadataUpdateSettingsService(
                 clusterService,
                 clusterModule.getAllocationService(),
@@ -754,7 +731,6 @@ public class Node implements Closeable {
                 threadPool
             );
 
-//            TODO: REDO and undo previous effects
             Collection<Object> pluginComponents = pluginsService.filterPlugins(Plugin.class)
                 .stream()
                 .flatMap(
@@ -774,7 +750,6 @@ public class Node implements Closeable {
                 )
                 .collect(Collectors.toList());
 
-//            TODO: REDO and undo previous effects
             ActionModule actionModule = new ActionModule(
                 false,
                 settings,
@@ -937,7 +912,6 @@ public class Node implements Closeable {
                 indexingLimits,
                 searchModule.getValuesSourceRegistry().getUsageService()
             );
-//            TODO: REDO and und previous effects
             final SearchService searchService = newSearchService(
                 clusterService,
                 indicesService,
@@ -959,7 +933,6 @@ public class Node implements Closeable {
                 settingsModule.getIndexScopedSettings()
             );
             final List<PersistentTasksExecutor<?>> builtinTaskExecutors = Arrays.asList(systemIndexMigrationExecutor);
-            //            TODO: REDO and und previous effects
             final List<PersistentTasksExecutor<?>> pluginTaskExectors = pluginsService.filterPlugins(PersistentTaskPlugin.class)
                 .stream()
                 .map(
@@ -977,7 +950,6 @@ public class Node implements Closeable {
                 .flatMap(List::stream)
                 .collect(toList());
             final PersistentTasksExecutorRegistry registry = new PersistentTasksExecutorRegistry(allTasksExectors);
-            //            TODO: REDO and und previous effects
             final PersistentTasksClusterService persistentTasksClusterService = new PersistentTasksClusterService(
                 settings,
                 registry,
@@ -985,7 +957,7 @@ public class Node implements Closeable {
                 threadPool
             );
             resourcesToClose.add(persistentTasksClusterService);
-//            TODO: REDO and und previous effects
+
             final PersistentTasksService persistentTasksService = new PersistentTasksService(clusterService, threadPool, client);
 
             final List<ShutdownAwarePlugin> shutdownAwarePlugins = pluginsService.filterPlugins(ShutdownAwarePlugin.class);
@@ -1000,7 +972,6 @@ public class Node implements Closeable {
                 b.bind(Client.class).toInstance(client);
                 b.bind(NodeClient.class).toInstance(client);
                 b.bind(Environment.class).toInstance(this.environment);
-//                TODO: REDO and undo previous effects
                 b.bind(ThreadPool.class).toInstance(threadPool);
                 b.bind(NodeEnvironment.class).toInstance(nodeEnvironment);
                 b.bind(ResourceWatcherService.class).toInstance(resourceWatcherService);
@@ -1642,7 +1613,7 @@ public class Node implements Closeable {
         }
     }
 
-    public String customAPIEndointResponseString(){
+    public String customAPIEndointResponseString() {
         return "Hello from customAPIEndointResponseString in Node class";
     }
 
@@ -1655,31 +1626,20 @@ public class Node implements Closeable {
      * @param settings the {@link Settings} object used to specify new configuration of thread pools
      * @return an {@link NodeThreadPoolConfigurationResponse} object
      */
-    public NodeThreadPoolConfigurationResponse SetNewThreadPools(Settings settings){
+    public NodeThreadPoolConfigurationResponse SetNewThreadPools(Settings settings) {
         /* 2 Steps:
            1. Signal ThreadPool object regarding update
            2. Do changes in current object, and redo somethings
 
            Code inspired from the protected constructor of Node
          */
-        logger.debug("Setting up new thread pools, in Node class");
-        logger.debug("Received settings: ", settings.toString());
-        final List<Closeable> resourcesToClose = new ArrayList<>(); // register everything we need to release in the case of an error
-        boolean success = false;
-
-        try{
+        try {
             final ThreadPool threadPool = injector.getInstance(ThreadPool.class);
             final List<ExecutorBuilder<?>> executorBuilders = pluginsService.getExecutorBuilders(settings);
             threadPool.setNewThreadPools(settings, executorBuilders.toArray(new ExecutorBuilder<?>[0]));
-            success = true;
         } catch (Exception ex) {
             logger.info("Exception while initiating new thread pools: " + ex.getMessage());
-//            throw new ElasticsearchException("Failed to initiate new thread pools", ex);
             return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
-        } finally {
-            if (success == false) {
-                IOUtils.closeWhileHandlingException(resourcesToClose);
-            }
         }
         return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), successfulNodeUpdateMessage);
     }
@@ -1688,13 +1648,13 @@ public class Node implements Closeable {
      * Sets up new thread pools initialises destruction of existing thread pool threads.
      * Reads the settings from elasticsearch.yml
      * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
-     * Assumes that only the queue size and size of thread pools are changed
+     * Any changes in settings other than those in thread pool settings are ignored
      * @return {@code success}
      */
-    public NodeThreadPoolConfigurationResponse SetNewThreadPools(){
+    public NodeThreadPoolConfigurationResponse SetNewThreadPools() {
         try {
             return SetNewThreadPools(EnvironmentAwareCommand.getElasticsearchConfig());
-        } catch (UserException ex){
+        } catch (UserException ex) {
             return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
         }
     }
