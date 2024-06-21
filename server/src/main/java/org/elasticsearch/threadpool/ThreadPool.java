@@ -1005,98 +1005,119 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
      */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public void setNewThreadPools(final Settings settings, final ExecutorBuilder<?>... customBuilders) {
-        // block 1 -> setting up builders
-        assert Node.NODE_NAME_SETTING.exists(settings);
-
         final Map<String, ExecutorBuilder> builders = new HashMap<>();
-        final int allocatedProcessors = EsExecutors.allocatedProcessors(settings);
-        final int halfProcMaxAt5 = halfAllocatedProcessorsMaxFive(allocatedProcessors);
-        final int halfProcMaxAt10 = halfAllocatedProcessorsMaxTen(allocatedProcessors);
-        final int genericThreadPoolMax = boundedBy(4 * allocatedProcessors, 128, 512);
-        builders.put(
-            Names.GENERIC,
-            new ScalingExecutorBuilder(Names.GENERIC, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30), false)
-        );
-        builders.put(Names.WRITE, new FixedExecutorBuilder(settings, Names.WRITE, allocatedProcessors, 10000));
-        builders.put(Names.GET, new FixedExecutorBuilder(settings, Names.GET, allocatedProcessors, 1000));
-        builders.put(Names.ANALYZE, new FixedExecutorBuilder(settings, Names.ANALYZE, 1, 16));
-        builders.put(
-            Names.SEARCH,
-            new AutoQueueAdjustingExecutorBuilder(settings, Names.SEARCH, searchThreadPoolSize(allocatedProcessors), 1000, 1000, 1000, 2000)
-        );
-        builders.put(Names.SEARCH_COORDINATION, new FixedExecutorBuilder(settings, Names.SEARCH_COORDINATION, halfProcMaxAt5, 1000, false));
-        builders.put(
-            Names.SEARCH_THROTTLED,
-            new AutoQueueAdjustingExecutorBuilder(settings, Names.SEARCH_THROTTLED, 1, 100, 100, 100, 200)
-        );
-
-        builders.put(
-            Names.AUTO_COMPLETE,
-            new FixedExecutorBuilder(settings, Names.AUTO_COMPLETE, Math.max(allocatedProcessors / 4, 1), 100, false)
-        );
-        builders.put(
-            Names.MANAGEMENT,
-            new ScalingExecutorBuilder(Names.MANAGEMENT, 1, boundedBy(allocatedProcessors, 1, 5), TimeValue.timeValueMinutes(5), false)
-        );
-        // no queue as this means clients will need to handle rejections on listener queue even if the operation succeeded
-        // the assumption here is that the listeners should be very lightweight on the listeners side
-        builders.put(Names.LISTENER, new FixedExecutorBuilder(settings, Names.LISTENER, halfProcMaxAt10, -1, true));
-        builders.put(Names.FLUSH, new ScalingExecutorBuilder(Names.FLUSH, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false));
-        builders.put(Names.REFRESH, new ScalingExecutorBuilder(Names.REFRESH, 1, halfProcMaxAt10, TimeValue.timeValueMinutes(5), false));
-        builders.put(Names.WARMER, new ScalingExecutorBuilder(Names.WARMER, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false));
-        builders.put(Names.SNAPSHOT, new ScalingExecutorBuilder(Names.SNAPSHOT, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false));
-        builders.put(
-            Names.SNAPSHOT_META,
-            new ScalingExecutorBuilder(
-                Names.SNAPSHOT_META,
-                1,
-                Math.min(allocatedProcessors * 3, 50),
-                TimeValue.timeValueSeconds(30L),
-                false
-            )
-        );
-        builders.put(
-            Names.FETCH_SHARD_STARTED,
-            new ScalingExecutorBuilder(Names.FETCH_SHARD_STARTED, 1, 2 * allocatedProcessors, TimeValue.timeValueMinutes(5), false)
-        );
-        builders.put(Names.FORCE_MERGE, new FixedExecutorBuilder(settings, Names.FORCE_MERGE, 1, -1));
-        builders.put(
-            Names.FETCH_SHARD_STORE,
-            new ScalingExecutorBuilder(Names.FETCH_SHARD_STORE, 1, 2 * allocatedProcessors, TimeValue.timeValueMinutes(5), false)
-        );
-        builders.put(Names.SYSTEM_READ, new FixedExecutorBuilder(settings, Names.SYSTEM_READ, halfProcMaxAt5, 2000, false));
-        builders.put(Names.SYSTEM_WRITE, new FixedExecutorBuilder(settings, Names.SYSTEM_WRITE, halfProcMaxAt5, 1000, false));
-        builders.put(
-            Names.SYSTEM_CRITICAL_READ,
-            new FixedExecutorBuilder(settings, Names.SYSTEM_CRITICAL_READ, halfProcMaxAt5, 2000, false)
-        );
-        builders.put(
-            Names.SYSTEM_CRITICAL_WRITE,
-            new FixedExecutorBuilder(settings, Names.SYSTEM_CRITICAL_WRITE, halfProcMaxAt5, 1500, false)
-        );
-        for (final ExecutorBuilder<?> builder : customBuilders) {
-            if (builders.containsKey(builder.name())) {
-                throw new IllegalArgumentException("builder with name [" + builder.name() + "] already exists");
-            }
-            builders.put(builder.name(), builder);
-        }
-        // block 1 end
-
-        /*
-        Store temp variables and assign to state variables together
-         */
-        final Map<String, ExecutorBuilder> tmpBuilders = Collections.unmodifiableMap(builders);
-
-        // block 2 -> building thread pools (copied from constructor)
         final Map<String, ExecutorHolder> executors = new HashMap<>();
-        for (final Map.Entry<String, ExecutorBuilder> entry : builders.entrySet()) {
-            final ExecutorBuilder.ExecutorSettings executorSettings = entry.getValue().getSettings(settings);
-            final ExecutorHolder executorHolder = entry.getValue().build(executorSettings, threadContext);
-            if (executors.containsKey(executorHolder.info.getName())) {
-                throw new IllegalStateException("duplicate executors with name [" + executorHolder.info.getName() + "] registered");
+
+        try {
+            // block 1 -> setting up builders
+            assert Node.NODE_NAME_SETTING.exists(settings);
+
+            final int allocatedProcessors = EsExecutors.allocatedProcessors(settings);
+            final int halfProcMaxAt5 = halfAllocatedProcessorsMaxFive(allocatedProcessors);
+            final int halfProcMaxAt10 = halfAllocatedProcessorsMaxTen(allocatedProcessors);
+            final int genericThreadPoolMax = boundedBy(4 * allocatedProcessors, 128, 512);
+            builders.put(
+                Names.GENERIC,
+                new ScalingExecutorBuilder(Names.GENERIC, 4, genericThreadPoolMax, TimeValue.timeValueSeconds(30), false)
+            );
+            builders.put(Names.WRITE, new FixedExecutorBuilder(settings, Names.WRITE, allocatedProcessors, 10000));
+            builders.put(Names.GET, new FixedExecutorBuilder(settings, Names.GET, allocatedProcessors, 1000));
+            builders.put(Names.ANALYZE, new FixedExecutorBuilder(settings, Names.ANALYZE, 1, 16));
+            builders.put(
+                Names.SEARCH,
+                new AutoQueueAdjustingExecutorBuilder(
+                    settings,
+                    Names.SEARCH,
+                    searchThreadPoolSize(allocatedProcessors),
+                    1000,
+                    1000,
+                    1000,
+                    2000
+                )
+            );
+            builders.put(
+                Names.SEARCH_COORDINATION,
+                new FixedExecutorBuilder(settings, Names.SEARCH_COORDINATION, halfProcMaxAt5, 1000, false)
+            );
+            builders.put(
+                Names.SEARCH_THROTTLED,
+                new AutoQueueAdjustingExecutorBuilder(settings, Names.SEARCH_THROTTLED, 1, 100, 100, 100, 200)
+            );
+
+            builders.put(
+                Names.AUTO_COMPLETE,
+                new FixedExecutorBuilder(settings, Names.AUTO_COMPLETE, Math.max(allocatedProcessors / 4, 1), 100, false)
+            );
+            builders.put(
+                Names.MANAGEMENT,
+                new ScalingExecutorBuilder(Names.MANAGEMENT, 1, boundedBy(allocatedProcessors, 1, 5), TimeValue.timeValueMinutes(5), false)
+            );
+            // no queue as this means clients will need to handle rejections on listener queue even if the operation succeeded
+            // the assumption here is that the listeners should be very lightweight on the listeners side
+            builders.put(Names.LISTENER, new FixedExecutorBuilder(settings, Names.LISTENER, halfProcMaxAt10, -1, true));
+            builders.put(Names.FLUSH, new ScalingExecutorBuilder(Names.FLUSH, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false));
+            builders.put(
+                Names.REFRESH,
+                new ScalingExecutorBuilder(Names.REFRESH, 1, halfProcMaxAt10, TimeValue.timeValueMinutes(5), false)
+            );
+            builders.put(Names.WARMER, new ScalingExecutorBuilder(Names.WARMER, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false));
+            builders.put(
+                Names.SNAPSHOT,
+                new ScalingExecutorBuilder(Names.SNAPSHOT, 1, halfProcMaxAt5, TimeValue.timeValueMinutes(5), false)
+            );
+            builders.put(
+                Names.SNAPSHOT_META,
+                new ScalingExecutorBuilder(
+                    Names.SNAPSHOT_META,
+                    1,
+                    Math.min(allocatedProcessors * 3, 50),
+                    TimeValue.timeValueSeconds(30L),
+                    false
+                )
+            );
+            builders.put(
+                Names.FETCH_SHARD_STARTED,
+                new ScalingExecutorBuilder(Names.FETCH_SHARD_STARTED, 1, 2 * allocatedProcessors, TimeValue.timeValueMinutes(5), false)
+            );
+            builders.put(Names.FORCE_MERGE, new FixedExecutorBuilder(settings, Names.FORCE_MERGE, 1, -1));
+            builders.put(
+                Names.FETCH_SHARD_STORE,
+                new ScalingExecutorBuilder(Names.FETCH_SHARD_STORE, 1, 2 * allocatedProcessors, TimeValue.timeValueMinutes(5), false)
+            );
+            builders.put(Names.SYSTEM_READ, new FixedExecutorBuilder(settings, Names.SYSTEM_READ, halfProcMaxAt5, 2000, false));
+            builders.put(Names.SYSTEM_WRITE, new FixedExecutorBuilder(settings, Names.SYSTEM_WRITE, halfProcMaxAt5, 1000, false));
+            builders.put(
+                Names.SYSTEM_CRITICAL_READ,
+                new FixedExecutorBuilder(settings, Names.SYSTEM_CRITICAL_READ, halfProcMaxAt5, 2000, false)
+            );
+            builders.put(
+                Names.SYSTEM_CRITICAL_WRITE,
+                new FixedExecutorBuilder(settings, Names.SYSTEM_CRITICAL_WRITE, halfProcMaxAt5, 1500, false)
+            );
+            for (final ExecutorBuilder<?> builder : customBuilders) {
+                if (builders.containsKey(builder.name())) {
+                    throw new IllegalArgumentException("builder with name [" + builder.name() + "] already exists");
+                }
+                builders.put(builder.name(), builder);
             }
-            logger.debug("created NEW thread pool: {}", entry.getValue().formatInfo(executorHolder.info));
-            executors.put(entry.getKey(), executorHolder);
+            // block 1 end
+
+            // block 2 -> building thread pools (copied from constructor)
+            for (final Map.Entry<String, ExecutorBuilder> entry : builders.entrySet()) {
+                final ExecutorBuilder.ExecutorSettings executorSettings = entry.getValue().getSettings(settings);
+                final ExecutorHolder executorHolder = entry.getValue().build(executorSettings, threadContext);
+                if (executors.containsKey(executorHolder.info.getName())) {
+                    throw new IllegalStateException("duplicate executors with name [" + executorHolder.info.getName() + "] registered");
+                }
+                logger.debug("created NEW thread pool: {}", entry.getValue().formatInfo(executorHolder.info));
+                executors.put(entry.getKey(), executorHolder);
+            }
+        } catch (Exception e) {
+            for (ExecutorHolder executor : executors.values()) {
+                // shutdown the execution holders that were created, because GC won't clean them up
+                executor.executor.shutdown();
+            }
+            throw e;
         }
 
         executors.put(Names.SAME, new ExecutorHolder(EsExecutors.DIRECT_EXECUTOR_SERVICE, new Info(Names.SAME, ThreadPoolType.DIRECT)));
@@ -1108,9 +1129,10 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
             .collect(Collectors.toList());
         // block 2 end
 
-        // storing more tmp state vars
+        // Store temp variables and assign to state variables together
         final Map<String, ThreadPool.ExecutorHolder> tmpExecutors = unmodifiableMap(executors);
         final ThreadPoolInfo tmpThreadPoolInfo = new ThreadPoolInfo(infos);
+        final Map<String, ExecutorBuilder> tmpBuilders = Collections.unmodifiableMap(builders);
 
         // Block 3 -> now that all has been done and setup, time to change ThreadPool object's state
         /*
