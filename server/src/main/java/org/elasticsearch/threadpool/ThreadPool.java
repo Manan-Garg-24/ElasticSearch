@@ -8,7 +8,6 @@
 
 package org.elasticsearch.threadpool;
 
-
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
@@ -162,8 +161,8 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
     private final ThreadContext threadContext;
 
     @SuppressWarnings("rawtypes")
-//    @GuardedBy("schedulingLock, buildersReadWriteLock")
-    private  Map<String, ExecutorBuilder> builders;
+    // @GuardedBy("schedulingLock, buildersReadWriteLock")
+    private Map<String, ExecutorBuilder> builders;
 
     private final ScheduledThreadPoolExecutor scheduler;
 
@@ -483,7 +482,9 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         } else {
             toSchedule = contextPreservingRunnable;
         }
-        final ScheduledCancellableAdapter scheduledFuture = new ScheduledCancellableAdapter(scheduler.schedule(toSchedule, delay.millis(), TimeUnit.MILLISECONDS));
+        final ScheduledCancellableAdapter scheduledFuture = new ScheduledCancellableAdapter(
+            scheduler.schedule(toSchedule, delay.millis(), TimeUnit.MILLISECONDS)
+        );
         schedulingLock.readLock().unlock();
         return scheduledFuture;
     }
@@ -996,16 +997,15 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         return true;
     }
 
+    /**
+     * Set new thread pools based on the settings and custom builders provided, on which new tasks get scheduled.
+     * Signals shutdown of original thread pools but does not wait for their termination.
+     * @param settings {@link Settings} object created by parsing elasticsearch.yml
+     * @param customBuilders custom thread pool builders
+     */
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public void setNewThreadPools(final Settings settings, final ExecutorBuilder<?>... customBuilders) {
-        /*
-         start setting up new thread pools. Once done, signal to schedule new incoming jobs on them and then start awaiting original thread
-         pool termination -> Use future
-         wait for original thread pools to finish and then return
-        */
-        logger.debug("Creating new thread pools in ThreadPool class");
-
-//        block 1 -> setting up builders (copied from constructor)
+        // block 1 -> setting up builders
         assert Node.NODE_NAME_SETTING.exists(settings);
 
         final Map<String, ExecutorBuilder> builders = new HashMap<>();
@@ -1080,14 +1080,14 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
             }
             builders.put(builder.name(), builder);
         }
-//        block 1 end
+        // block 1 end
 
         /*
         Store temp variables and assign to state variables together
          */
         final Map<String, ExecutorBuilder> tmpBuilders = Collections.unmodifiableMap(builders);
 
-//        block 2 -> building thread pools (copied from constructor)
+        // block 2 -> building thread pools (copied from constructor)
         final Map<String, ExecutorHolder> executors = new HashMap<>();
         for (final Map.Entry<String, ExecutorBuilder> entry : builders.entrySet()) {
             final ExecutorBuilder.ExecutorSettings executorSettings = entry.getValue().getSettings(settings);
@@ -1106,14 +1106,13 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
             .filter(holder -> holder.info.getName().equals("same") == false)
             .map(holder -> holder.info)
             .collect(Collectors.toList());
-//      block 2 end
+        // block 2 end
 
-//        storing more tmp state vars
+        // storing more tmp state vars
         final Map<String, ThreadPool.ExecutorHolder> tmpExecutors = unmodifiableMap(executors);
         final ThreadPoolInfo tmpThreadPoolInfo = new ThreadPoolInfo(infos);
 
-//        Block 3 -> now that all has been done and setup, time to change ThreadPool object's state
-//      TODO: Discuss the order in which the state variables should be updated
+        // Block 3 -> now that all has been done and setup, time to change ThreadPool object's state
         /*
         Possible improvement - update all four state variables in separate threads to enhance concurrency
         But this may not be so useful given thread creation and destruction overhead
@@ -1129,7 +1128,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         schedulingLock.writeLock().unlock();
         // now scheduling can resume
 
-//        updating remaining state variables
+        // updating remaining state variables (not involved in scheduling)
         buildersReadWriteLock.writeLock().lock();
         this.builders = tmpBuilders;
         buildersReadWriteLock.writeLock().unlock();
@@ -1137,12 +1136,11 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         this.threadPoolInfo = tmpThreadPoolInfo;
         threadPoolInfoReadWriteLock.writeLock().unlock();
 
-        //        terminating earlier ExecutorServices
+        // terminating earlier ExecutorServices
         for (ExecutorHolder executor : oldExecutors.values()) {
             if (executor.executor() instanceof ThreadPoolExecutor) {
                 executor.executor().shutdown();
             }
         }
-//        TODO: Discuss if we should do something to ensure old info to tasks that were scheduled earlier
     }
 }
