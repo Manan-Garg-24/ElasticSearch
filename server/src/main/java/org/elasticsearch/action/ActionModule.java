@@ -24,8 +24,6 @@ import org.elasticsearch.action.admin.cluster.migration.TransportGetFeatureUpgra
 import org.elasticsearch.action.admin.cluster.migration.TransportPostFeatureUpgradeAction;
 import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.ThreadPoolConfigurationAction;
 import org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools.TransportThreadPoolConfigurationAction;
-import org.elasticsearch.action.admin.cluster.node.threadpool_config.ConfigureThreadPoolAction;
-import org.elasticsearch.action.admin.cluster.node.threadpool_config.TransportConfigureThreadPoolAction;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.NodesHotThreadsAction;
 import org.elasticsearch.action.admin.cluster.node.hotthreads.TransportNodesHotThreadsAction;
 import org.elasticsearch.action.admin.cluster.node.info.NodesInfoAction;
@@ -305,7 +303,6 @@ import org.elasticsearch.rest.action.admin.cluster.RestGetSnapshotsAction;
 import org.elasticsearch.rest.action.admin.cluster.RestGetStoredScriptAction;
 import org.elasticsearch.rest.action.admin.cluster.RestGetTaskAction;
 import org.elasticsearch.rest.action.admin.cluster.RestListTasksAction;
-import org.elasticsearch.rest.action.admin.cluster.RestConfigureThreadPoolAction;
 import org.elasticsearch.rest.action.admin.cluster.RestThreadPoolConfigurationAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesHotThreadsAction;
 import org.elasticsearch.rest.action.admin.cluster.RestNodesInfoAction;
@@ -548,7 +545,6 @@ public class ActionModule extends AbstractModule {
         }
         ActionRegistry actions = new ActionRegistry();
 
-        actions.register(ConfigureThreadPoolAction.INSTANCE, TransportConfigureThreadPoolAction.class);
         actions.register(ThreadPoolConfigurationAction.INSTANCE, TransportThreadPoolConfigurationAction.class);
 
         actions.register(MainAction.INSTANCE, TransportMainAction.class);
@@ -715,7 +711,6 @@ public class ActionModule extends AbstractModule {
             }
             restController.registerHandler(handler);
         };
-        registerHandler.accept(new RestConfigureThreadPoolAction());
         registerHandler.accept(new RestThreadPoolConfigurationAction());
         registerHandler.accept(new RestAddVotingConfigExclusionAction());
         registerHandler.accept(new RestClearVotingConfigExclusionsAction());

@@ -20,7 +20,8 @@ import java.util.List;
 public class TransportThreadPoolConfigurationAction extends TransportNodesAction<
     ThreadPoolConfigurationRequest,
     ThreadPoolConfigurationResponse,
-    TransportThreadPoolConfigurationAction.NodeThreadPoolUpdateRequest, NodeThreadPoolConfigurationResponse> {
+    TransportThreadPoolConfigurationAction.NodeThreadPoolUpdateRequest,
+    NodeThreadPoolConfigurationResponse> {
 
     private final Node node;
 
@@ -48,9 +49,11 @@ public class TransportThreadPoolConfigurationAction extends TransportNodesAction
     }
 
     @Override
-    protected ThreadPoolConfigurationResponse newResponse(ThreadPoolConfigurationRequest request, List<NodeThreadPoolConfigurationResponse> responses, List<FailedNodeException> failures) {
-//        List<String> results = responses.stream().map(NodeResponse::getResult).collect(Collectors.toList());
-//        return new MyCustomResponse(clusterService.getClusterName(), responses, failures);
+    protected ThreadPoolConfigurationResponse newResponse(
+        ThreadPoolConfigurationRequest request,
+        List<NodeThreadPoolConfigurationResponse> responses,
+        List<FailedNodeException> failures
+    ) {
         return new ThreadPoolConfigurationResponse(clusterService.getClusterName(), responses, failures);
     }
 
@@ -66,8 +69,6 @@ public class TransportThreadPoolConfigurationAction extends TransportNodesAction
 
     @Override
     protected NodeThreadPoolConfigurationResponse nodeOperation(NodeThreadPoolUpdateRequest nodeThreadPoolUpdateRequest) {
-//        String result = clusterService.localNode().getId(); // Get the local node ID
-//        return new MyCustomResponse.NodeResponse(clusterService.localNode(), result);
         return node.SetNewThreadPools();
     }
 
@@ -90,29 +91,4 @@ public class TransportThreadPoolConfigurationAction extends TransportNodesAction
             request.writeTo(out);
         }
     }
-
-
-//    public static class NodeResponse extends BaseNodeResponse {
-//        private String result;
-//
-//        public NodeResponse(StreamInput in) throws IOException {
-//            super(in);
-//            result = in.readString();
-//        }
-//
-//        public NodeResponse(DiscoveryNode node, String result) {
-//            super(node);
-//            this.result = result;
-//        }
-//
-//        public String getResult() {
-//            return result;
-//        }
-//
-//        @Override
-//        public void writeTo(StreamOutput out) throws IOException {
-//            super.writeTo(out);
-//            out.writeString(result);
-//        }
-//    }
 }

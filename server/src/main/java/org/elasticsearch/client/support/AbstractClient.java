@@ -801,12 +801,15 @@ public abstract class AbstractClient implements Client {
         }
 
         @Override
-        public ActionFuture<ThreadPoolConfigurationResponse> updateNodesThreadPools(ThreadPoolConfigurationRequest request){
+        public ActionFuture<ThreadPoolConfigurationResponse> updateNodesThreadPools(ThreadPoolConfigurationRequest request) {
             return execute(ThreadPoolConfigurationAction.INSTANCE, request);
         }
 
         @Override
-        public void updateNodesThreadPools(ThreadPoolConfigurationRequest request, ActionListener<ThreadPoolConfigurationResponse> listener){
+        public void updateNodesThreadPools(
+            ThreadPoolConfigurationRequest request,
+            ActionListener<ThreadPoolConfigurationResponse> listener
+        ) {
             execute(ThreadPoolConfigurationAction.INSTANCE, request, listener);
         }
 
