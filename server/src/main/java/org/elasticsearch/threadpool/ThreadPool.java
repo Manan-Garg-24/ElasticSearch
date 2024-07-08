@@ -1109,6 +1109,12 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
                 if (executors.containsKey(executorHolder.info.getName())) {
                     throw new IllegalStateException("duplicate executors with name [" + executorHolder.info.getName() + "] registered");
                 }
+                if (executorHolder.executor() instanceof EsThreadPoolExecutor) {
+                    // tell the original executor about the new one, to direct tasks after shutdown to the new holder
+                    ((EsThreadPoolExecutor) executor(entry.getKey())).signalThreadPoolReconfiguration(
+                        (EsThreadPoolExecutor) executorHolder.executor()
+                    );
+                }
                 logger.debug("created NEW thread pool: {}", entry.getValue().formatInfo(executorHolder.info));
                 executors.put(entry.getKey(), executorHolder);
             }
