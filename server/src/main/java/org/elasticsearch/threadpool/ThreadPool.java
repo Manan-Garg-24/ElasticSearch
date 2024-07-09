@@ -1109,12 +1109,6 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
                 if (executors.containsKey(executorHolder.info.getName())) {
                     throw new IllegalStateException("duplicate executors with name [" + executorHolder.info.getName() + "] registered");
                 }
-                if (executorHolder.executor() instanceof EsThreadPoolExecutor) {
-                    // tell the original executor about the new one, to direct tasks after shutdown to the new holder
-                    ((EsThreadPoolExecutor) executor(entry.getKey())).signalThreadPoolReconfiguration(
-                        (EsThreadPoolExecutor) executorHolder.executor()
-                    );
-                }
                 logger.debug("created NEW thread pool: {}", entry.getValue().formatInfo(executorHolder.info));
                 executors.put(entry.getKey(), executorHolder);
             }
@@ -1165,9 +1159,17 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         threadPoolInfoReadWriteLock.writeLock().unlock();
 
         // terminating earlier ExecutorServices
-        for (ExecutorHolder executor : oldExecutors.values()) {
-            if (executor.executor() instanceof ThreadPoolExecutor) {
-                executor.executor().shutdown();
+        for (Map.Entry<String, ExecutorHolder> entry : oldExecutors.entrySet()) {
+            String executorName = entry.getKey();
+            ExecutorHolder executorHolder = entry.getValue();
+            if (executorHolder.executor() instanceof ThreadPoolExecutor) {
+                // signal about new executor before shutting down
+                if (executorHolder.executor() instanceof EsThreadPoolExecutor) {
+                    ((EsThreadPoolExecutor) executorHolder.executor()).signalThreadPoolReconfiguration(
+                        (EsThreadPoolExecutor) (executor(executorName))
+                    );
+                }
+                executorHolder.executor().shutdown();
             }
         }
     }
