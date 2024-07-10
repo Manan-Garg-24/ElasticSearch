@@ -88,8 +88,26 @@ public class EsThreadPoolExecutor extends ThreadPoolExecutor {
         void onTerminated();
     }
 
+    private boolean isReconfigured = false;
+    private EsThreadPoolExecutor newExecutor;
+
+    /**
+     * Tell this {@link EsThreadPoolExecutor} that the thread pools have been reconfigured<br>
+     * Required to lead tasks scheduled after reconfiguration to the new executors
+     */
+    public void signalThreadPoolReconfiguration(EsThreadPoolExecutor newExecutor) {
+        isReconfigured = true;
+        this.newExecutor = newExecutor;
+    }
+
     @Override
     public void execute(Runnable command) {
+        // check if thread pool is reconfigured
+        // If it is reconfigured, lead to the new executor
+        if (isReconfigured) {
+            newExecutor.execute(command);
+            return;
+        }
         final Runnable wrappedRunnable = wrapRunnable(command);
         try {
             super.execute(wrappedRunnable);

@@ -1159,9 +1159,17 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         threadPoolInfoReadWriteLock.writeLock().unlock();
 
         // terminating earlier ExecutorServices
-        for (ExecutorHolder executor : oldExecutors.values()) {
-            if (executor.executor() instanceof ThreadPoolExecutor) {
-                executor.executor().shutdown();
+        for (Map.Entry<String, ExecutorHolder> entry : oldExecutors.entrySet()) {
+            String executorName = entry.getKey();
+            ExecutorHolder executorHolder = entry.getValue();
+            if (executorHolder.executor() instanceof ThreadPoolExecutor) {
+                // signal about new executor before shutting down
+                if (executorHolder.executor() instanceof EsThreadPoolExecutor) {
+                    ((EsThreadPoolExecutor) executorHolder.executor()).signalThreadPoolReconfiguration(
+                        (EsThreadPoolExecutor) (executor(executorName))
+                    );
+                }
+                executorHolder.executor().shutdown();
             }
         }
     }
