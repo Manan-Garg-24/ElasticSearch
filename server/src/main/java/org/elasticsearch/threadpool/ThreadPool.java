@@ -197,6 +197,8 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
         Setting.Property.NodeScope
     );
 
+    private static HashMap<String, CarryForwardStatistics> aggregatedTerminatedThreadPoolStatistics;
+
     @SuppressWarnings({ "rawtypes", "unchecked" })
     public ThreadPool(final Settings settings, final ExecutorBuilder<?>... customBuilders) {
         assert Node.NODE_NAME_SETTING.exists(settings);
@@ -306,6 +308,7 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
             LATE_TIME_INTERVAL_WARN_THRESHOLD_SETTING.get(settings).millis()
         );
         this.cachedTimeThread.start();
+        aggregatedTerminatedThreadPoolStatistics = new HashMap<>();
     }
 
     /**
@@ -393,6 +396,15 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
                 RejectedExecutionHandler rejectedExecutionHandler = threadPoolExecutor.getRejectedExecutionHandler();
                 if (rejectedExecutionHandler instanceof EsRejectedExecutionHandler) {
                     rejected = ((EsRejectedExecutionHandler) rejectedExecutionHandler).rejected();
+                }
+                // include aggregated statistics for earlier thread pools that were shut down due to reconfiguration
+                if (aggregatedTerminatedThreadPoolStatistics.containsKey(name)) {
+                    CarryForwardStatistics threadPoolCarryForwardStatistics = aggregatedTerminatedThreadPoolStatistics.get(name);
+                    largest = Math.max(threadPoolCarryForwardStatistics.largestPoolSize, largest);
+                    completed += threadPoolCarryForwardStatistics.completedTaskCount;
+                    if (threadPoolCarryForwardStatistics.containsRejectedTaskCount) {
+                        rejected += threadPoolCarryForwardStatistics.rejectedTaskCount;
+                    }
                 }
             }
             stats.add(new ThreadPoolStats.Stats(name, threads, queue, active, rejected, largest, completed));
@@ -995,6 +1007,92 @@ public class ThreadPool implements ReportingService<ThreadPoolInfo>, Scheduler {
                 : testingMethod.getClassName() + "#" + testingMethod.getMethodName() + " is called recursively";
         }
         return true;
+    }
+
+    private static class CarryForwardStatistics {
+        private int largestPoolSize;
+        private long completedTaskCount, rejectedTaskCount;
+        private final boolean containsRejectedTaskCount;
+
+        CarryForwardStatistics(int largestPoolSize, long completedTaskCount, long rejectedTaskCount) {
+            this.largestPoolSize = largestPoolSize;
+            this.completedTaskCount = completedTaskCount;
+            this.rejectedTaskCount = rejectedTaskCount;
+            containsRejectedTaskCount = true;
+        }
+
+        CarryForwardStatistics(int largestPoolSize, long completedTaskCount) {
+            this.largestPoolSize = largestPoolSize;
+            this.completedTaskCount = completedTaskCount;
+            containsRejectedTaskCount = false;
+        }
+
+        /**
+         * Ingest statistics of older thread pool and update statistics (including {@code  rejected})
+         */
+        private void ingestStatistics(int largest, long completed, long rejected) throws IllegalArgumentException {
+            if (containsRejectedTaskCount != true) {
+                throw new IllegalArgumentException("This statistic object doesn't support rejected count");
+            }
+            if (largest < 0 || completed < 0 || rejected < 0) {
+                throw new IllegalArgumentException("Received bad value for one or more arguments");
+            }
+            if (largest > this.largestPoolSize) {
+                this.largestPoolSize = largest;
+            }
+            this.completedTaskCount += completed;
+            this.rejectedTaskCount += rejected;
+        }
+
+        /**
+         * Ingest statistics of older thread pool and update statistics (excluding {@code  rejected})
+         */
+        private void ingestStatistics(int largest, long completed) throws IllegalArgumentException {
+            if (containsRejectedTaskCount) {
+                throw new IllegalArgumentException("This statistic object requires rejected count");
+            }
+            if (largest < 0 || completed < 0) {
+                throw new IllegalArgumentException("Received bad value for one or more arguments");
+            }
+            if (largest > this.largestPoolSize) {
+                this.largestPoolSize = largest;
+            }
+            this.completedTaskCount += completed;
+        }
+    }
+
+    /**
+     * Method to intake statistics from previous thread pools that have to be aggregated so that they are not lost post thread pool
+     * reconfiguration for thread pools without rejected task count.
+     */
+    public static void storeOriginalThreadPoolCarryForwardStatistics(
+        String threadPoolName,
+        int largestPoolSize,
+        long completedTaskCount,
+        long rejectedTaskCount
+    ) throws IllegalArgumentException {
+        if (aggregatedTerminatedThreadPoolStatistics.containsKey(threadPoolName)) {
+            aggregatedTerminatedThreadPoolStatistics.get(threadPoolName)
+                .ingestStatistics(largestPoolSize, completedTaskCount, rejectedTaskCount);
+        } else {
+            aggregatedTerminatedThreadPoolStatistics.put(
+                threadPoolName,
+                new CarryForwardStatistics(largestPoolSize, completedTaskCount, rejectedTaskCount)
+            );
+        }
+    }
+
+    /**
+     * Method to intake statistics from previous thread pools that have to be aggregated so that they are not lost post thread pool
+     * reconfiguration for thread pools without rejected task count.
+     */
+    public static void storeOriginalThreadPoolCarryForwardStatistics(String threadPoolName, int largestPoolSize, long completedTaskCount)
+        throws IllegalArgumentException {
+        if (aggregatedTerminatedThreadPoolStatistics.containsKey(threadPoolName)) {
+            aggregatedTerminatedThreadPoolStatistics.get(threadPoolName).ingestStatistics(largestPoolSize, completedTaskCount);
+        } else {
+            aggregatedTerminatedThreadPoolStatistics.put(threadPoolName, new CarryForwardStatistics(largestPoolSize, completedTaskCount));
+        }
     }
 
     /**
