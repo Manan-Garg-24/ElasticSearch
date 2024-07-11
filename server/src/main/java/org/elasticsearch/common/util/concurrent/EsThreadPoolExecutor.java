@@ -12,6 +12,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.apache.logging.log4j.message.ParameterizedMessage;
 import org.elasticsearch.core.SuppressForbidden;
+import org.elasticsearch.threadpool.ThreadPool;
 
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.RejectedExecutionHandler;
@@ -81,6 +82,25 @@ public class EsThreadPoolExecutor extends ThreadPoolExecutor {
                     listener = null;
                 }
             }
+        }
+        // send thread pool statistics for future use
+        RejectedExecutionHandler handler = getRejectedExecutionHandler();
+        final String[] nameParts = name.split("/");
+        if (handler instanceof EsRejectedExecutionHandler) {
+            ThreadPool.storeOriginalThreadPoolCarryForwardStatistics(
+                // name of the thread pool without the node name part
+                nameParts[nameParts.length - 1],
+                getLargestPoolSize(),
+                getCompletedTaskCount(),
+                ((EsRejectedExecutionHandler) handler).rejected()
+            );
+        } else {
+            ThreadPool.storeOriginalThreadPoolCarryForwardStatistics(
+                // name of the thread pool without the node name part
+                nameParts[nameParts.length - 1],
+                getLargestPoolSize(),
+                getCompletedTaskCount()
+            );
         }
     }
 
