@@ -1,7 +1,6 @@
 package org.elasticsearch.action.admin.cluster.node.reconfigure_thread_pools;
 
 import org.elasticsearch.action.support.nodes.BaseNodesRequest;
-import org.elasticsearch.common.Strings;
 import org.elasticsearch.common.io.stream.StreamInput;
 import org.elasticsearch.common.io.stream.StreamOutput;
 
@@ -14,10 +13,10 @@ public class ThreadPoolConfigurationRequest extends BaseNodesRequest<ThreadPoolC
     }
 
     /**
-     * Default constructor, to signal reconfiguration of thread pools of all nodes
+     * Reconfigure specified nodes
      */
-    public ThreadPoolConfigurationRequest() {
-        super(Strings.tokenizeToStringArray("_all", ","));
+    public ThreadPoolConfigurationRequest(String... nodesIds) {
+        super(nodesIds);
     }
 
     @Override
