@@ -156,9 +156,9 @@ public class InternalSettingsPreparer {
      * @return a {@link Settings} object
      */
     public static Settings getSettingsFromConfigFile(Path configPath) throws SettingsException {
-//        get a new settings builder
+        // get a new settings builder
         Settings.Builder output = Settings.builder();
-//        sanity check for existence of elasticsearch.yml
+        // sanity check for existence of elasticsearch.yml
         Path path = configPath.toAbsolutePath().normalize().resolve("elasticsearch.yml");
         if (Files.exists(path)) {
             try {
@@ -167,7 +167,7 @@ public class InternalSettingsPreparer {
                 throw new SettingsException("Failed to load settings from " + path.toString(), e);
             }
         }
-//        build settings loaded from file and return
+        // build settings loaded from file and return
         return output.build();
     }
 }
