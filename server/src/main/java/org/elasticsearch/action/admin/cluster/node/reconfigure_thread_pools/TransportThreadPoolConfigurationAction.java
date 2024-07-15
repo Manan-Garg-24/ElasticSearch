@@ -69,7 +69,7 @@ public class TransportThreadPoolConfigurationAction extends TransportNodesAction
 
     @Override
     protected NodeThreadPoolConfigurationResponse nodeOperation(NodeThreadPoolUpdateRequest nodeThreadPoolUpdateRequest) {
-        return node.SetNewThreadPools();
+        return node.setNewThreadPools();
     }
 
     public static class NodeThreadPoolUpdateRequest extends BaseNodeRequest {

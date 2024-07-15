@@ -1626,7 +1626,7 @@ public class Node implements Closeable {
      * @param settings the {@link Settings} object used to specify new configuration of thread pools
      * @return an {@link NodeThreadPoolConfigurationResponse} object
      */
-    public NodeThreadPoolConfigurationResponse SetNewThreadPools(Settings settings) {
+    public NodeThreadPoolConfigurationResponse setNewThreadPools(Settings settings) {
         /* 2 Steps:
            1. Signal ThreadPool object regarding update
            2. Do changes in current object, and redo somethings
@@ -1651,9 +1651,9 @@ public class Node implements Closeable {
      * Any changes in settings other than those in thread pool settings are ignored
      * @return {@code success}
      */
-    public NodeThreadPoolConfigurationResponse SetNewThreadPools() {
+    public NodeThreadPoolConfigurationResponse setNewThreadPools() {
         try {
-            return SetNewThreadPools(EnvironmentAwareCommand.getElasticsearchConfig());
+            return setNewThreadPools(EnvironmentAwareCommand.getElasticsearchConfig());
         } catch (UserException ex) {
             return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
         }
