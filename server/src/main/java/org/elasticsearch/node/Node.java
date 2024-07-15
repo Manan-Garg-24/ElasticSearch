@@ -1613,12 +1613,6 @@ public class Node implements Closeable {
         }
     }
 
-    public String customAPIEndointResponseString() {
-        return "Hello from customAPIEndointResponseString in Node class";
-    }
-
-    private final String successfulNodeUpdateMessage = "Thread pools reconfigured successfully";
-
     /**
      * Sets up new thread pools with given settings and initialises destruction of existing thread pool threads.
      * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
@@ -1638,9 +1632,10 @@ public class Node implements Closeable {
             final List<ExecutorBuilder<?>> executorBuilders = pluginsService.getExecutorBuilders(settings);
             threadPool.setNewThreadPools(settings, executorBuilders.toArray(new ExecutorBuilder<?>[0]));
         } catch (Exception ex) {
-            logger.info("Exception while initiating new thread pools: " + ex.getMessage());
+            logger.info("Exception while initiating new thread pools: {}", ex.getMessage());
             return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
         }
+        String successfulNodeUpdateMessage = "Thread pools reconfigured successfully";
         return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), successfulNodeUpdateMessage);
     }
 
