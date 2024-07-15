@@ -1643,7 +1643,7 @@ public class Node implements Closeable {
      * Sets up new thread pools initialises destruction of existing thread pool threads.
      * Reads the settings from elasticsearch.yml
      * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
-     * Any changes in settings other than those in thread pool settings are ignored
+     * Any changes in settings other than those used for thread pools have no effect
      * @return {@code success}
      */
     public NodeThreadPoolConfigurationResponse setNewThreadPools() {
