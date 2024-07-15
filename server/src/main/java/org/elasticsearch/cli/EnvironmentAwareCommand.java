@@ -106,7 +106,7 @@ public abstract class EnvironmentAwareCommand extends Command {
 
     /**
      * Reads {@code elasticsearch.yml} and creates a {@link Settings} object from it <br>
-     * Public only for {@link Node#SetNewThreadPools()}
+     * Public only for {@link Node#setNewThreadPools()}
      * @return {@code setting} - a {@link Settings} object
      */
     public static Settings getElasticsearchConfig() throws UserException, SettingsException {

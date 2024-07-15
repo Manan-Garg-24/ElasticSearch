@@ -1613,12 +1613,6 @@ public class Node implements Closeable {
         }
     }
 
-    public String customAPIEndointResponseString() {
-        return "Hello from customAPIEndointResponseString in Node class";
-    }
-
-    private final String successfulNodeUpdateMessage = "Thread pools reconfigured successfully";
-
     /**
      * Sets up new thread pools with given settings and initialises destruction of existing thread pool threads.
      * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
@@ -1626,7 +1620,7 @@ public class Node implements Closeable {
      * @param settings the {@link Settings} object used to specify new configuration of thread pools
      * @return an {@link NodeThreadPoolConfigurationResponse} object
      */
-    public NodeThreadPoolConfigurationResponse SetNewThreadPools(Settings settings) {
+    public NodeThreadPoolConfigurationResponse setNewThreadPools(Settings settings) {
         /* 2 Steps:
            1. Signal ThreadPool object regarding update
            2. Do changes in current object, and redo somethings
@@ -1638,9 +1632,10 @@ public class Node implements Closeable {
             final List<ExecutorBuilder<?>> executorBuilders = pluginsService.getExecutorBuilders(settings);
             threadPool.setNewThreadPools(settings, executorBuilders.toArray(new ExecutorBuilder<?>[0]));
         } catch (Exception ex) {
-            logger.info("Exception while initiating new thread pools: " + ex.getMessage());
+            logger.info("Exception while initiating new thread pools: {}", ex.getMessage());
             return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
         }
+        String successfulNodeUpdateMessage = "Thread pools reconfigured successfully";
         return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), successfulNodeUpdateMessage);
     }
 
@@ -1651,9 +1646,9 @@ public class Node implements Closeable {
      * Any changes in settings other than those in thread pool settings are ignored
      * @return {@code success}
      */
-    public NodeThreadPoolConfigurationResponse SetNewThreadPools() {
+    public NodeThreadPoolConfigurationResponse setNewThreadPools() {
         try {
-            return SetNewThreadPools(EnvironmentAwareCommand.getElasticsearchConfig());
+            return setNewThreadPools(EnvironmentAwareCommand.getElasticsearchConfig());
         } catch (UserException ex) {
             return new NodeThreadPoolConfigurationResponse(localNodeFactory.getNode(), ex.toString());
         }
