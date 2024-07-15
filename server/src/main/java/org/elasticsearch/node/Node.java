@@ -1616,11 +1616,17 @@ public class Node implements Closeable {
     /**
      * Sets up new thread pools with given settings and initialises destruction of existing thread pool threads.
      * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
+     * Assumes that only the queue size and size of thread pools are changed
      * @param settings the {@link Settings} object used to specify new configuration of thread pools
      * @return an {@link NodeThreadPoolConfigurationResponse} object
      */
     public NodeThreadPoolConfigurationResponse setNewThreadPools(Settings settings) {
-        // Signal ThreadPool object regarding update
+        /* 2 Steps:
+           1. Signal ThreadPool object regarding update
+           2. Do changes in current object, and redo somethings
+
+           Code inspired from the protected constructor of Node
+         */
         try {
             final ThreadPool threadPool = injector.getInstance(ThreadPool.class);
             final List<ExecutorBuilder<?>> executorBuilders = pluginsService.getExecutorBuilders(settings);
@@ -1637,8 +1643,7 @@ public class Node implements Closeable {
      * Sets up new thread pools initialises destruction of existing thread pool threads.
      * Reads the settings from elasticsearch.yml
      * Does not wait for original threads to finish execution of earlier submitted tasks.<br>
-     * Any changes in settings other than those in thread pool settings are ignored<br>
-     * If any thread pool fails to be reconfigured, no thread pools are updated, and the exception caught is returned in String form
+     * Any changes in settings other than those in thread pool settings are ignored
      * @return {@code success}
      */
     public NodeThreadPoolConfigurationResponse setNewThreadPools() {
